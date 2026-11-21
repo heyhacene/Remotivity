@@ -1,11 +1,13 @@
 package com.heyhacene.remotivity;
 
-import android.content.ClipData;
-import android.content.ClipboardManager;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.drawable.ClipDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -22,6 +24,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
@@ -29,6 +32,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static final String CHROME_MOBILE_UA =
@@ -37,6 +41,7 @@ public class MainActivity extends BridgeActivity {
     private LinearLayout portalContainer;
     private WebView portalWebView;
     private TextView portalTitleView;
+    private ProgressBar progressBar;
     private volatile String currentPortalUrl = "";
     private OnBackPressedCallback portalBackCallback;
 
@@ -89,6 +94,31 @@ public class MainActivity extends BridgeActivity {
         );
     }
 
+    private Drawable createPillBackground(String hexColor, String strokeHex) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(Color.parseColor(hexColor));
+        gd.setCornerRadius(dp(10));
+        if (strokeHex != null) {
+            gd.setStroke(dp(1), Color.parseColor(strokeHex));
+        }
+        return gd;
+    }
+
+    private Button createToolbarButton(String label, String bgHex, String textHex, String strokeHex) {
+        Button btn = new Button(this);
+        btn.setText(label);
+        btn.setAllCaps(false);
+        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        btn.setTextColor(Color.parseColor(textHex));
+        btn.setBackground(createPillBackground(bgHex, strokeHex));
+        btn.setPadding(dp(10), 0, dp(10), 0);
+        btn.setMinWidth(0);
+        btn.setMinimumWidth(0);
+        btn.setMinHeight(0);
+        btn.setMinimumHeight(0);
+        return btn;
+    }
+
     private void setupPortalOverlay() {
         ViewGroup rootContent = findViewById(android.R.id.content);
         if (rootContent == null) return;
@@ -109,20 +139,14 @@ public class MainActivity extends BridgeActivity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setBackgroundColor(Color.parseColor("#0B1120"));
-        toolbar.setPadding(dp(10), dp(8), dp(10), dp(8));
+        toolbar.setBackgroundColor(Color.parseColor("#060913"));
+        toolbar.setPadding(dp(10), dp(4), dp(10), dp(4));
 
-        Button backBtn = new Button(this);
-        backBtn.setText("← Cockpit");
-        backBtn.setAllCaps(false);
-        backBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        backBtn.setTextColor(Color.WHITE);
-        backBtn.setBackgroundColor(Color.parseColor("#0E7490"));
-        backBtn.setPadding(dp(10), dp(4), dp(10), dp(4));
-        backBtn.setOnClickListener(v -> hidePortalInternal());
-        toolbar.addView(backBtn, new LinearLayout.LayoutParams(
+        Button homeBtn = createToolbarButton("⌂ Accueil", "#0E7490", "#FFFFFF", "#22D3EE");
+        homeBtn.setOnClickListener(v -> hidePortalInternal());
+        toolbar.addView(homeBtn, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            dp(36)
+            dp(34)
         ));
 
         portalTitleView = new TextView(this);
@@ -130,52 +154,62 @@ public class MainActivity extends BridgeActivity {
         portalTitleView.setTextColor(Color.WHITE);
         portalTitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         portalTitleView.setSingleLine(true);
-        portalTitleView.setPadding(dp(10), 0, dp(10), 0);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+        portalTitleView.setGravity(Gravity.CENTER_VERTICAL);
+        portalTitleView.setPadding(dp(10), 0, dp(8), 0);
+        toolbar.addView(portalTitleView, new LinearLayout.LayoutParams(
             0,
             ViewGroup.LayoutParams.WRAP_CONTENT,
             1f
-        );
-        toolbar.addView(portalTitleView, titleParams);
+        ));
 
-        Button copyBtn = new Button(this);
-        copyBtn.setText("URL");
-        copyBtn.setAllCaps(false);
-        copyBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        copyBtn.setTextColor(Color.parseColor("#67E8F9"));
-        copyBtn.setBackgroundColor(Color.parseColor("#1E293B"));
-        copyBtn.setPadding(dp(8), dp(4), dp(8), dp(4));
-        copyBtn.setOnClickListener(v -> {
+        Button pinBtn = createToolbarButton("📌 Garder", "#1E293B", "#67E8F9", "#334155");
+        pinBtn.setOnClickListener(v -> {
             String url = portalWebView != null && portalWebView.getUrl() != null
                 ? portalWebView.getUrl()
                 : currentPortalUrl;
-            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            if (clipboard != null && url != null) {
-                clipboard.setPrimaryClip(ClipData.newPlainText("Remotivity URL", url));
-                Toast.makeText(MainActivity.this, "URL de session copiée", Toast.LENGTH_SHORT).show();
+            if (url != null && url.startsWith("http")) {
+                currentPortalUrl = url;
+                WebView bridgeWebView = getBridge() != null ? getBridge().getWebView() : null;
+                if (bridgeWebView != null) {
+                    String js = "window.dispatchEvent(new CustomEvent('remotivity-pin-url', { detail: "
+                        + JSONObject.quote(url) + " }));";
+                    bridgeWebView.evaluateJavascript(js, null);
+                }
+                Toast.makeText(MainActivity.this, "Session mémorisée", Toast.LENGTH_SHORT).show();
             }
         });
-        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams pinParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            dp(36)
+            dp(34)
         );
-        copyParams.setMargins(0, 0, dp(6), 0);
-        toolbar.addView(copyBtn, copyParams);
+        pinParams.setMargins(0, 0, dp(6), 0);
+        toolbar.addView(pinBtn, pinParams);
 
-        Button reloadBtn = new Button(this);
-        reloadBtn.setText("↻");
-        reloadBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        reloadBtn.setTextColor(Color.WHITE);
-        reloadBtn.setBackgroundColor(Color.parseColor("#1E293B"));
-        reloadBtn.setPadding(dp(8), dp(2), dp(8), dp(2));
+        Button reloadBtn = createToolbarButton("↻", "#1E293B", "#FFFFFF", "#334155");
         reloadBtn.setOnClickListener(v -> {
             if (portalWebView != null) portalWebView.reload();
         });
-        toolbar.addView(reloadBtn, new LinearLayout.LayoutParams(dp(40), dp(36)));
+        toolbar.addView(reloadBtn, new LinearLayout.LayoutParams(dp(36), dp(34)));
 
         portalContainer.addView(toolbar, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+            dp(42)
+        ));
+
+        // Slim cyan progress bar
+        progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        progressBar.setMax(100);
+        progressBar.setVisibility(View.GONE);
+        LayerDrawable progressDrawable = new LayerDrawable(new Drawable[] {
+            new ColorDrawable(Color.parseColor("#0F172A")),
+            new ClipDrawable(new ColorDrawable(Color.parseColor("#22D3EE")), Gravity.LEFT, ClipDrawable.HORIZONTAL)
+        });
+        progressDrawable.setId(0, android.R.id.background);
+        progressDrawable.setId(1, android.R.id.progress);
+        progressBar.setProgressDrawable(progressDrawable);
+        portalContainer.addView(progressBar, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(3)
         ));
 
         portalWebView = new WebView(this);
@@ -185,7 +219,19 @@ public class MainActivity extends BridgeActivity {
         portalWebView.getSettings().setBuiltInZoomControls(true);
         portalWebView.getSettings().setDisplayZoomControls(false);
 
-        portalWebView.setWebChromeClient(new WebChromeClient());
+        portalWebView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                if (progressBar == null) return;
+                if (newProgress < 100) {
+                    progressBar.setVisibility(View.VISIBLE);
+                    progressBar.setProgress(newProgress);
+                } else {
+                    progressBar.setVisibility(View.GONE);
+                }
+            }
+        });
+
         portalWebView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
@@ -257,6 +303,10 @@ public class MainActivity extends BridgeActivity {
             portalBackCallback.setEnabled(false);
         }
         CookieManager.getInstance().flush();
+        WebView bridgeWebView = getBridge() != null ? getBridge().getWebView() : null;
+        if (bridgeWebView != null) {
+            bridgeWebView.evaluateJavascript("window.dispatchEvent(new CustomEvent('remotivity-portal-hidden'));", null);
+        }
     }
 
     public class RemotivityBridge {

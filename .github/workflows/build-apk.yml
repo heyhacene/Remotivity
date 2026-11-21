@@ -157,11 +157,11 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: "Remotivity v1.0.${{ github.run_number }}"
           body: |
-            ### 🛰️ Remotivity v1.0.${{ github.run_number }} — Antigravity Remote & Connexion Google
-            - **Portail Antigravity Remote Plein Écran intégré** : remplace Firefox avec connexion Google OAuth native persistante (cookies et session conservés, sans erreur `disallowed_useragent`)
-            - **Mode Chat Natif API Google (`generativelanguage.googleapis.com`)** : découverte dynamique des modèles Gemini de votre compte, chargement du transcript PC et adaptateur multi-modèles
-            - **Centre de Partage** : QR Code & lien de téléchargement de l'app + partage sécurisé d'accès à une instance
-            - **Pop-up de mise à jour automatique** : détection de la dernière release GitHub au lancement avec téléchargement direct de `Remotivity.apk`
+            ### 🛰️ Remotivity v1.0.${{ github.run_number }} — Accès Simple Antigravity Remote
+            - **Interface épurée à 100 % sur l’essentiel** : carte principale « Ouvrir Antigravity Remote » avec lancement automatique optionnel au démarrage
+            - **Portail Plein Écran avec Connexion Google persistante** : barre supérieure fine (`⌂ Accueil`, `📌 Garder` pour mémoriser la session courante, `↻` rafraîchir) et barre de progression
+            - **Mes Sessions** : accès rapide en 1 tap à Antigravity, Google Jules, Claude ou vos propres liens de sessions
+            - **Partage & Pop-up de mise à jour** : QR Code de téléchargement, partage de session et alerte automatique des nouvelles versions
 
             APK signé et aligné, prêt à être installé directement sur votre smartphone ou tablette Android.
           files: |

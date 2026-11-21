@@ -1,112 +1,19 @@
-export type InstanceType = 'antigravity' | 'claude' | 'vscode' | 'terminal' | 'jules';
-
-export type InstanceStatus = 'online' | 'busy' | 'offline';
-
-export type ModelProvider =
-  | 'antigravity-host'
-  | 'google-gemini'
-  | 'openai-compatible'
-  | 'anthropic-compatible';
-
-export interface AIModelOption {
-  id: string;
-  label: string;
-  provider: ModelProvider;
-  description: string;
-  badge: string;
-}
-
-export interface GoogleAuthConfig {
-  apiKey: string;
-  oauthAccessToken: string;
-  oauthClientId: string;
-  userEmail: string;
-  userName: string;
-  userPicture: string;
-  antigravityPortalUrl: string;
-  autoOpenPortalOnLaunch: boolean;
-  customEndpointUrl: string;
-  customApiKey: string;
-  customModelName: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  text: string;
-  timestamp: string;
-  modelLabel?: string;
-  isError?: boolean;
-}
-
-export interface WorkProjectItem {
+export interface RemoteSession {
   id: string;
   name: string;
-  path: string;
-  description: string;
-  badge: string;
-}
-
-export interface RemoteInstance {
-  id: string;
-  name: string;
-  type: InstanceType;
-  hostUrl: string;
-  webPortalUrl?: string;
-  accessToken?: string;
-  workspace: string;
-  status: InstanceStatus;
-  tags: string[];
-  isFavorite: boolean;
-  lastPingMs?: number;
-  lastActive: string;
+  url: string;
+  icon: string;
+  subtitle?: string;
+  isPrimary?: boolean;
   sharedBy?: string;
-  expiresAt?: number;
-  readOnly?: boolean;
-  isDemo?: boolean;
-  description?: string;
 }
 
-export interface TerminalEntry {
-  id: string;
-  timestamp: string;
-  kind: 'command' | 'output' | 'error' | 'prompt' | 'ai-reply' | 'system';
-  text: string;
-  durationMs?: number;
-}
-
-export interface ShareInvitePayload {
+export interface ShareSessionPayload {
   v: number;
   name: string;
-  type: InstanceType;
-  hostUrl: string;
-  webPortalUrl?: string;
-  accessToken?: string;
-  workspace: string;
-  readOnly: boolean;
-  expiresAt?: number;
+  url: string;
+  icon: string;
   sharedBy?: string;
-}
-
-export interface HostSessionItem {
-  id: string;
-  type: string;
-  lastUpdated: string;
-  artifacts: string[];
-}
-
-export interface HostWorkspaceItem {
-  name: string;
-  path: string;
-  hasGit: boolean;
-  lastModified: string;
-}
-
-export interface HostProcessItem {
-  ProcessName: string;
-  Id: number;
-  MainWindowTitle?: string;
-  MemoryMB: number;
 }
 
 export interface RemotivityNativeBridge {
@@ -122,7 +29,7 @@ declare global {
   }
 }
 
-export const APP_CURRENT_VERSION = 'v1.0.2';
+export const APP_CURRENT_VERSION = 'v1.0.3';
 
 export const GITHUB_REPO_OWNER = 'heyhacene';
 export const GITHUB_REPO_NAME = 'Remotivity';
@@ -131,162 +38,30 @@ export const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO_OWNER}/${GI
 export const GITHUB_APK_URL = `https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases/latest/download/Remotivity.apk`;
 export const PWA_PUBLIC_URL = `https://${GITHUB_REPO_OWNER}.github.io/${GITHUB_REPO_NAME}/`;
 
-export const DEFAULT_ANTIGRAVITY_PORTAL_URL = 'https://antigravity.google';
+export const DEFAULT_ANTIGRAVITY_URL = 'https://antigravity.google';
 
-export const DEFAULT_AI_MODELS: AIModelOption[] = [
+export const DEFAULT_SESSIONS: RemoteSession[] = [
   {
-    id: 'antigravity-host',
-    label: 'Antigravity PC (Agent Hôte)',
-    provider: 'antigravity-host',
-    description: 'Envoie directement vos instructions à votre instance Antigravity du PC du boulot.',
-    badge: 'PC Hôte',
-  },
-  {
-    id: 'gemini-2.5-pro',
-    label: 'Google Gemini 2.5 Pro',
-    provider: 'google-gemini',
-    description: 'Modèle de raisonnement avancé via l’API Google.',
-    badge: 'API Google',
+    id: 'antigravity-main',
+    name: 'Antigravity Remote',
+    url: 'https://antigravity.google',
+    icon: '🛰️',
+    subtitle: 'Mon PC • Connexion Google',
+    isPrimary: true,
   },
   {
-    id: 'gemini-2.5-flash',
-    label: 'Google Gemini 2.5 Flash',
-    provider: 'google-gemini',
-    description: 'Réponses ultra-rapides sur mobile via l’API Google.',
-    badge: 'API Google',
+    id: 'jules-cloud',
+    name: 'Google Jules',
+    url: 'https://jules.google.com',
+    icon: '🤖',
+    subtitle: 'Sessions GitHub Google',
   },
   {
-    id: 'custom-other-model',
-    label: 'Modèle Externe (Claude / OpenAI / Custom)',
-    provider: 'openai-compatible',
-    description: 'Adaptateur universel pour connecter un autre fournisseur IA.',
-    badge: 'Multi-Modèle',
-  },
-];
-
-export const WORK_PROJECTS: WorkProjectItem[] = [
-  {
-    id: 'proj-remotivity',
-    name: 'Remotivity',
-    path: 'C:\\Users\\HO791592\\Remotivity',
-    description: 'Cockpit mobile Antigravity Remote & Agent Hôte PC',
-    badge: 'Actif',
-  },
-  {
-    id: 'proj-lavenirencommun',
-    name: 'lavenirencommun',
-    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\lavenirencommun',
-    description: 'Programme 2027 • APK Capacitor & PWA',
-    badge: 'App',
-  },
-  {
-    id: 'proj-keotv',
-    name: 'keotv',
-    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\keotv',
-    description: 'Client Android TV natif & synchronisation cloud',
-    badge: 'TV',
-  },
-  {
-    id: 'proj-technicajob',
-    name: 'Technicajob',
-    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\Technicajob',
-    description: 'Veille offres & notifications Capacitor',
-    badge: 'Veille',
-  },
-  {
-    id: 'proj-bookshelf',
-    name: 'Bookshelf',
-    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\Bookshelf',
-    description: 'Édition & générateur de contenus',
-    badge: 'Projet',
-  },
-];
-
-export const INSTANCE_TYPE_META: Record<
-  InstanceType,
-  { label: string; shortLabel: string; badgeClass: string; iconEmoji: string; defaultPort: string }
-> = {
-  antigravity: {
-    label: 'Antigravity Remote',
-    shortLabel: 'Antigravity',
-    badgeClass: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/35',
-    iconEmoji: '🛰️',
-    defaultPort: '7890',
-  },
-  claude: {
-    label: 'Claude Code CLI',
-    shortLabel: 'Claude',
-    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/35',
-    iconEmoji: '✨',
-    defaultPort: '7890',
-  },
-  jules: {
-    label: 'Google Jules',
-    shortLabel: 'Jules',
-    badgeClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/35',
-    iconEmoji: '🤖',
-    defaultPort: '443',
-  },
-  vscode: {
-    label: 'VS Code Tunnel',
-    shortLabel: 'VS Code',
-    badgeClass: 'bg-sky-500/15 text-sky-300 border-sky-500/35',
-    iconEmoji: '💻',
-    defaultPort: '8080',
-  },
-  terminal: {
-    label: 'Terminal Distant',
-    shortLabel: 'Terminal',
-    badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35',
-    iconEmoji: '⚡',
-    defaultPort: '7890',
-  },
-};
-
-export const DEFAULT_INSTANCES: RemoteInstance[] = [
-  {
-    id: 'inst-antigravity-remote',
-    name: 'Antigravity Remote • PC du Boulot',
-    type: 'antigravity',
-    hostUrl: 'http://localhost:7890',
-    webPortalUrl: 'https://antigravity.google',
-    workspace: 'C:\\Users\\HO791592\\Remotivity',
-    status: 'online',
-    tags: ['Antigravity', 'Google Auth', 'Principal'],
-    isFavorite: true,
-    lastPingMs: 14,
-    lastActive: 'Session active',
-    isDemo: false,
-    description: 'Portail Antigravity Remote officiel (connexion Google intégrée) + pont Agent Hôte PC.',
-  },
-  {
-    id: 'inst-jules-cloud',
-    name: 'Google Jules • Tâches GitHub',
-    type: 'jules',
-    hostUrl: 'https://jules.google.com',
-    webPortalUrl: 'https://jules.google.com',
-    workspace: 'github.com/heyhacene/*',
-    status: 'online',
-    tags: ['Google', 'Cloud', 'Async'],
-    isFavorite: false,
-    lastPingMs: 42,
-    lastActive: 'En ligne',
-    isDemo: true,
-    description: 'Agent asynchrone Google connecté à vos dépôts GitHub.',
-  },
-  {
-    id: 'inst-claude-code',
-    name: 'Claude Code • Adaptateur CLI',
-    type: 'claude',
-    hostUrl: 'http://localhost:7890',
-    workspace: '~/.gemini/antigravity/scratch',
-    status: 'busy',
-    tags: ['Multi-modèle', 'CLI'],
-    isFavorite: false,
-    lastPingMs: 22,
-    lastActive: 'Prêt',
-    isDemo: true,
-    description: 'Passerelle optionnelle pour piloter d’autres modèles ou sessions Claude Code.',
+    id: 'claude-web',
+    name: 'Claude',
+    url: 'https://claude.ai',
+    icon: '✨',
+    subtitle: 'Modèle alternatif',
   },
 ];
 
@@ -320,10 +95,6 @@ export function getCurrentNativePortalUrl(): string | null {
   return null;
 }
 
-/**
- * Semantic comparison of tags like "v1.0.10" vs "v1.0.2".
- * Returns > 0 if remoteTag is newer than currentTag.
- */
 export function compareVersions(remoteTag: string, currentTag: string): number {
   const parse = (v: string) =>
     v
@@ -342,31 +113,14 @@ export function compareVersions(remoteTag: string, currentTag: string): number {
   return 0;
 }
 
-/**
- * UTF-8 safe Base64URL encoding for sharing an instance invitation.
- */
-export function encodeInstanceInvite(
-  instance: RemoteInstance,
-  options: { readOnly: boolean; durationHours: number | null; sharedBy?: string }
-): string {
-  const expiresAt =
-    options.durationHours && options.durationHours > 0
-      ? Date.now() + options.durationHours * 3600 * 1000
-      : undefined;
-
-  const payload: ShareInvitePayload = {
+export function encodeSessionInvite(session: RemoteSession, sharedBy = 'heyhacene'): string {
+  const payload: ShareSessionPayload = {
     v: 1,
-    name: instance.name,
-    type: instance.type,
-    hostUrl: instance.hostUrl,
-    webPortalUrl: instance.webPortalUrl,
-    accessToken: options.readOnly ? undefined : instance.accessToken,
-    workspace: instance.workspace,
-    readOnly: options.readOnly,
-    expiresAt,
-    sharedBy: options.sharedBy || 'heyhacene',
+    name: session.name,
+    url: session.url,
+    icon: session.icon,
+    sharedBy,
   };
-
   const json = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(json);
   let binary = '';
@@ -376,16 +130,13 @@ export function encodeInstanceInvite(
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/**
- * Decodes either a full URL containing ?invite=... or a raw Base64URL invite string.
- */
-export function decodeInstanceInvite(rawInput: string): {
-  payload: ShareInvitePayload | null;
+export function decodeSessionInvite(rawInput: string): {
+  payload: ShareSessionPayload | null;
   error?: string;
 } {
   try {
     let token = rawInput.trim();
-    if (!token) return { payload: null, error: 'Code d’invitation vide.' };
+    if (!token) return { payload: null, error: 'Lien ou code vide.' };
 
     if (token.includes('invite=')) {
       try {
@@ -409,18 +160,14 @@ export function decodeInstanceInvite(rawInput: string): {
       bytes[i] = binary.charCodeAt(i);
     }
     const json = new TextDecoder().decode(bytes);
-    const parsed = JSON.parse(json) as ShareInvitePayload;
+    const parsed = JSON.parse(json) as ShareSessionPayload;
 
-    if (!parsed || !parsed.name || !parsed.hostUrl) {
-      return { payload: null, error: 'Format d’invitation invalide.' };
-    }
-
-    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-      return { payload: null, error: 'Ce lien d’invitation a expiré.' };
+    if (!parsed || !parsed.name || !parsed.url) {
+      return { payload: null, error: 'Invitation invalide.' };
     }
 
     return { payload: parsed };
   } catch {
-    return { payload: null, error: 'Impossible de décoder le lien ou code d’invitation.' };
+    return { payload: null, error: 'Impossible de lire ce code ou lien.' };
   }
 }
