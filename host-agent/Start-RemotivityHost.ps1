@@ -334,6 +334,79 @@ try {
                         reply = "Instruction transmise à l'hôte $($env:COMPUTERNAME) ($agentType) et enregistrée dans $noteFile. Workspace ciblé : $cwd."
                     }
                 }
+                "/api/transcript" {
+                    $convId = $req.QueryString["id"]
+                    $brainPath = Join-Path $env:USERPROFILE ".gemini\antigravity\brain"
+                    $targetDir = $null
+                    if (-not [string]::IsNullOrWhiteSpace($convId)) {
+                        $cand = Join-Path $brainPath $convId
+                        if (Test-Path $cand) { $targetDir = Get-Item $cand }
+                    } else {
+                        $targetDir = Get-ChildItem -Path $brainPath -Directory -ErrorAction SilentlyContinue |
+                            Where-Object { $_.Name -ne "tempmediaStorage" -and (Test-Path (Join-Path $_.FullName ".system_generated\logs\transcript.jsonl")) } |
+                            Sort-Object LastWriteTime -Descending |
+                            Select-Object -First 1
+                    }
+
+                    $msgs = @()
+                    $resolvedId = ""
+                    if ($targetDir) {
+                        $resolvedId = $targetDir.Name
+                        $logPath = Join-Path $targetDir.FullName ".system_generated\logs\transcript.jsonl"
+                        if (Test-Path $logPath) {
+                            $lines = Get-Content -Path $logPath -Tail 80 -Encoding UTF8 -ErrorAction SilentlyContinue
+                            foreach ($line in $lines) {
+                                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                                try {
+                                    $obj = $line | ConvertFrom-Json
+                                    $role = if ($obj.type -eq "USER_INPUT") { "user" } elseif ($obj.type -eq "PLANNER_RESPONSE") { "assistant" } else { $null }
+                                    $txt = [string]$obj.content
+                                    if ($role -and -not [string]::IsNullOrWhiteSpace($txt)) {
+                                        $timeStr = ""
+                                        if ($obj.created_at) {
+                                            try { $timeStr = ([DateTime]::Parse($obj.created_at)).ToLocalTime().ToString("HH:mm") } catch {}
+                                        }
+                                        $msgs += [PSCustomObject]@{
+                                            role = $role
+                                            text = $txt
+                                            time = $timeStr
+                                        }
+                                    }
+                                } catch {}
+                            }
+                        }
+                    }
+
+                    if ($msgs.Count -gt 30) {
+                        $msgs = $msgs[($msgs.Count - 30)..($msgs.Count - 1)]
+                    }
+                    Send-JsonResponse -Response $res -StatusCode 200 -Payload @{
+                        conversationId = $resolvedId
+                        messages = @($msgs)
+                    }
+                }
+                "/api/remote-control" {
+                    $agyCmd = Get-Command "agy" -ErrorAction SilentlyContinue
+                    if (-not $agyCmd) {
+                        Send-JsonResponse -Response $res -StatusCode 200 -Payload @{
+                            available = $false
+                            message = "CLI 'agy' non trouvé dans le PATH. Activez Remote Control depuis Antigravity Desktop (Settings > Application > Enable Remote Control)."
+                        }
+                        break
+                    }
+                    try {
+                        Start-Process -FilePath $agyCmd.Source -ArgumentList "remote-control","start" -WindowStyle Hidden
+                        Send-JsonResponse -Response $res -StatusCode 200 -Payload @{
+                            available = $true
+                            started = $true
+                            message = "Daemon Antigravity Remote Control démarré sur $($env:COMPUTERNAME)."
+                        }
+                    } catch {
+                        Send-JsonResponse -Response $res -StatusCode 500 -Payload @{
+                            error = $_.Exception.Message
+                        }
+                    }
+                }
                 default {
                     Send-JsonResponse -Response $res -StatusCode 404 -Payload @{ error = "Route introuvable : $path" }
                 }

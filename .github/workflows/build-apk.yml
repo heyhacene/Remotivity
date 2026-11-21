@@ -56,7 +56,7 @@ jobs:
           fi
           npx cap sync android
 
-      - name: Configure Android Manifest, Version & Launcher Icons
+      - name: Configure Android Manifest, Native Portal WebView & Launcher Icons
         run: |
           python3 - << 'EOF'
           from pathlib import Path
@@ -91,6 +91,9 @@ jobs:
                   encoding="utf-8",
               )
           EOF
+
+          mkdir -p frontend/android/app/src/main/java/com/heyhacene/remotivity
+          cp android-overrides/MainActivity.java frontend/android/app/src/main/java/com/heyhacene/remotivity/MainActivity.java
 
           sudo apt-get update && sudo apt-get install -y librsvg2-bin
           for density_spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
@@ -154,12 +157,11 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: "Remotivity v1.0.${{ github.run_number }}"
           body: |
-            ### 🛰️ Remotivity v1.0.${{ github.run_number }} — Cockpit Instances Distantes
-            - **Accès multi-instances unifié** : Antigravity IDE, Claude Code CLI, Google Jules, VS Code Tunnel & Terminaux distants
-            - **Agent Hôte PC natif (`host-agent/Start-RemotivityHost.ps1`)** : zéro dépendance, exécution de commandes et détection de sessions `.gemini/antigravity/brain`
-            - **Centre de Partage** : QR Code & lien de téléchargement de l'app + partage sécurisé d'accès à une instance (Lecture seule ou Contrôle, avec expiration)
+            ### 🛰️ Remotivity v1.0.${{ github.run_number }} — Antigravity Remote & Connexion Google
+            - **Portail Antigravity Remote Plein Écran intégré** : remplace Firefox avec connexion Google OAuth native persistante (cookies et session conservés, sans erreur `disallowed_useragent`)
+            - **Mode Chat Natif API Google (`generativelanguage.googleapis.com`)** : découverte dynamique des modèles Gemini de votre compte, chargement du transcript PC et adaptateur multi-modèles
+            - **Centre de Partage** : QR Code & lien de téléchargement de l'app + partage sécurisé d'accès à une instance
             - **Pop-up de mise à jour automatique** : détection de la dernière release GitHub au lancement avec téléchargement direct de `Remotivity.apk`
-            - **Web / PWA** : déployé automatiquement sur GitHub Pages (`https://heyhacene.github.io/Remotivity/`)
 
             APK signé et aligné, prêt à être installé directement sur votre smartphone ou tablette Android.
           files: |

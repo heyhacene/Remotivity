@@ -2,6 +2,51 @@ export type InstanceType = 'antigravity' | 'claude' | 'vscode' | 'terminal' | 'j
 
 export type InstanceStatus = 'online' | 'busy' | 'offline';
 
+export type ModelProvider =
+  | 'antigravity-host'
+  | 'google-gemini'
+  | 'openai-compatible'
+  | 'anthropic-compatible';
+
+export interface AIModelOption {
+  id: string;
+  label: string;
+  provider: ModelProvider;
+  description: string;
+  badge: string;
+}
+
+export interface GoogleAuthConfig {
+  apiKey: string;
+  oauthAccessToken: string;
+  oauthClientId: string;
+  userEmail: string;
+  userName: string;
+  userPicture: string;
+  antigravityPortalUrl: string;
+  autoOpenPortalOnLaunch: boolean;
+  customEndpointUrl: string;
+  customApiKey: string;
+  customModelName: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  text: string;
+  timestamp: string;
+  modelLabel?: string;
+  isError?: boolean;
+}
+
+export interface WorkProjectItem {
+  id: string;
+  name: string;
+  path: string;
+  description: string;
+  badge: string;
+}
+
 export interface RemoteInstance {
   id: string;
   name: string;
@@ -64,7 +109,20 @@ export interface HostProcessItem {
   MemoryMB: number;
 }
 
-export const APP_CURRENT_VERSION = 'v1.0.1';
+export interface RemotivityNativeBridge {
+  isNativePortalSupported: () => boolean;
+  openPortal: (url: string, title?: string) => void;
+  hidePortal: () => void;
+  getCurrentPortalUrl: () => string;
+}
+
+declare global {
+  interface Window {
+    RemotivityNative?: RemotivityNativeBridge;
+  }
+}
+
+export const APP_CURRENT_VERSION = 'v1.0.2';
 
 export const GITHUB_REPO_OWNER = 'heyhacene';
 export const GITHUB_REPO_NAME = 'Remotivity';
@@ -73,12 +131,83 @@ export const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO_OWNER}/${GI
 export const GITHUB_APK_URL = `https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases/latest/download/Remotivity.apk`;
 export const PWA_PUBLIC_URL = `https://${GITHUB_REPO_OWNER}.github.io/${GITHUB_REPO_NAME}/`;
 
+export const DEFAULT_ANTIGRAVITY_PORTAL_URL = 'https://antigravity.google';
+
+export const DEFAULT_AI_MODELS: AIModelOption[] = [
+  {
+    id: 'antigravity-host',
+    label: 'Antigravity PC (Agent Hôte)',
+    provider: 'antigravity-host',
+    description: 'Envoie directement vos instructions à votre instance Antigravity du PC du boulot.',
+    badge: 'PC Hôte',
+  },
+  {
+    id: 'gemini-2.5-pro',
+    label: 'Google Gemini 2.5 Pro',
+    provider: 'google-gemini',
+    description: 'Modèle de raisonnement avancé via l’API Google.',
+    badge: 'API Google',
+  },
+  {
+    id: 'gemini-2.5-flash',
+    label: 'Google Gemini 2.5 Flash',
+    provider: 'google-gemini',
+    description: 'Réponses ultra-rapides sur mobile via l’API Google.',
+    badge: 'API Google',
+  },
+  {
+    id: 'custom-other-model',
+    label: 'Modèle Externe (Claude / OpenAI / Custom)',
+    provider: 'openai-compatible',
+    description: 'Adaptateur universel pour connecter un autre fournisseur IA.',
+    badge: 'Multi-Modèle',
+  },
+];
+
+export const WORK_PROJECTS: WorkProjectItem[] = [
+  {
+    id: 'proj-remotivity',
+    name: 'Remotivity',
+    path: 'C:\\Users\\HO791592\\Remotivity',
+    description: 'Cockpit mobile Antigravity Remote & Agent Hôte PC',
+    badge: 'Actif',
+  },
+  {
+    id: 'proj-lavenirencommun',
+    name: 'lavenirencommun',
+    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\lavenirencommun',
+    description: 'Programme 2027 • APK Capacitor & PWA',
+    badge: 'App',
+  },
+  {
+    id: 'proj-keotv',
+    name: 'keotv',
+    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\keotv',
+    description: 'Client Android TV natif & synchronisation cloud',
+    badge: 'TV',
+  },
+  {
+    id: 'proj-technicajob',
+    name: 'Technicajob',
+    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\Technicajob',
+    description: 'Veille offres & notifications Capacitor',
+    badge: 'Veille',
+  },
+  {
+    id: 'proj-bookshelf',
+    name: 'Bookshelf',
+    path: 'C:\\Users\\HO791592\\.gemini\\antigravity\\scratch\\Bookshelf',
+    description: 'Édition & générateur de contenus',
+    badge: 'Projet',
+  },
+];
+
 export const INSTANCE_TYPE_META: Record<
   InstanceType,
   { label: string; shortLabel: string; badgeClass: string; iconEmoji: string; defaultPort: string }
 > = {
   antigravity: {
-    label: 'Antigravity IDE',
+    label: 'Antigravity Remote',
     shortLabel: 'Antigravity',
     badgeClass: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/35',
     iconEmoji: '🛰️',
@@ -116,64 +245,80 @@ export const INSTANCE_TYPE_META: Record<
 
 export const DEFAULT_INSTANCES: RemoteInstance[] = [
   {
-    id: 'inst-antigravity-pc',
-    name: 'PC Principal • Antigravity IDE',
+    id: 'inst-antigravity-remote',
+    name: 'Antigravity Remote • PC du Boulot',
     type: 'antigravity',
     hostUrl: 'http://localhost:7890',
+    webPortalUrl: 'https://antigravity.google',
     workspace: 'C:\\Users\\HO791592\\Remotivity',
     status: 'online',
-    tags: ['Agent Hôte', 'Windows', 'Workspaces'],
+    tags: ['Antigravity', 'Google Auth', 'Principal'],
     isFavorite: true,
     lastPingMs: 14,
-    lastActive: 'À l’instant',
+    lastActive: 'Session active',
     isDemo: false,
-    description: 'Connexion directe à votre Agent Hôte PowerShell (sessions Antigravity, fichiers et shell distant).',
-  },
-  {
-    id: 'inst-claude-code',
-    name: 'Claude Code • Sessions CLI',
-    type: 'claude',
-    hostUrl: 'http://localhost:7890',
-    workspace: '~/.gemini/antigravity/scratch',
-    status: 'busy',
-    tags: ['Claude CLI', 'Coding Agent'],
-    isFavorite: true,
-    lastPingMs: 22,
-    lastActive: 'Il y a 2 min',
-    isDemo: true,
-    description: 'Pilotage de tâches Claude Code sur vos dépôts locaux ou serveur distant via tunnel.',
+    description: 'Portail Antigravity Remote officiel (connexion Google intégrée) + pont Agent Hôte PC.',
   },
   {
     id: 'inst-jules-cloud',
-    name: 'Google Jules • Agent Asynchrone',
+    name: 'Google Jules • Tâches GitHub',
     type: 'jules',
     hostUrl: 'https://jules.google.com',
     webPortalUrl: 'https://jules.google.com',
     workspace: 'github.com/heyhacene/*',
     status: 'online',
-    tags: ['Cloud', 'PR Auto', 'Async'],
+    tags: ['Google', 'Cloud', 'Async'],
     isFavorite: false,
-    lastPingMs: 48,
+    lastPingMs: 42,
     lastActive: 'En ligne',
     isDemo: true,
-    description: 'Accès rapide à vos sessions asynchrones Jules connectées à vos dépôts GitHub.',
+    description: 'Agent asynchrone Google connecté à vos dépôts GitHub.',
   },
   {
-    id: 'inst-vscode-tunnel',
-    name: 'VS Code Server • Tunnel Sécurisé',
-    type: 'vscode',
-    hostUrl: 'https://vscode.dev',
-    webPortalUrl: 'https://vscode.dev',
-    workspace: '/home/dev/workspace',
-    status: 'online',
-    tags: ['Web IDE', 'Tailscale'],
+    id: 'inst-claude-code',
+    name: 'Claude Code • Adaptateur CLI',
+    type: 'claude',
+    hostUrl: 'http://localhost:7890',
+    workspace: '~/.gemini/antigravity/scratch',
+    status: 'busy',
+    tags: ['Multi-modèle', 'CLI'],
     isFavorite: false,
-    lastPingMs: 36,
-    lastActive: 'En ligne',
+    lastPingMs: 22,
+    lastActive: 'Prêt',
     isDemo: true,
-    description: 'Éditeur VS Code complet accessible depuis mobile ou tablette via Cloudflare / VS Code Tunnel.',
+    description: 'Passerelle optionnelle pour piloter d’autres modèles ou sessions Claude Code.',
   },
 ];
+
+export function isNativePortalSupported(): boolean {
+  return Boolean(
+    typeof window !== 'undefined' &&
+      window.RemotivityNative &&
+      window.RemotivityNative.isNativePortalSupported()
+  );
+}
+
+export function openRemotePortal(url: string, title = 'Antigravity Remote'): boolean {
+  if (typeof window === 'undefined') return false;
+  if (window.RemotivityNative && window.RemotivityNative.isNativePortalSupported()) {
+    window.RemotivityNative.openPortal(url, title);
+    return true;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return false;
+}
+
+export function getCurrentNativePortalUrl(): string | null {
+  if (
+    typeof window !== 'undefined' &&
+    window.RemotivityNative &&
+    typeof window.RemotivityNative.getCurrentPortalUrl === 'function'
+  ) {
+    const val = window.RemotivityNative.getCurrentPortalUrl();
+    return val && val.trim() ? val.trim() : null;
+  }
+  return null;
+}
 
 /**
  * Semantic comparison of tags like "v1.0.10" vs "v1.0.2".
