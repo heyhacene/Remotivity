@@ -1,0 +1,176 @@
+name: Build Android APK (Capacitor)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build & Release Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Java (Temurin JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK Environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Inject exact CI build version
+        run: |
+          sed -i "s/export const APP_CURRENT_VERSION = 'v1\.0\.[0-9]\+';/export const APP_CURRENT_VERSION = 'v1.0.${{ github.run_number }}';/" frontend/src/types/remotivity.ts
+          sed -i "s/const CACHE_NAME = 'remotivity-pwa-v1\.0\.[0-9]\+';/const CACHE_NAME = 'remotivity-pwa-v1.0.${{ github.run_number }}';/" frontend/public/sw.js
+
+      - name: Install dependencies (Frontend)
+        working-directory: frontend
+        run: npm install
+
+      - name: Build web application
+        working-directory: frontend
+        run: npm run build
+
+      - name: Add/Sync Capacitor Android
+        working-directory: frontend
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Configure Android Manifest, Version & Launcher Icons
+        run: |
+          python3 - << 'EOF'
+          from pathlib import Path
+          import re
+
+          manifest_path = Path("frontend/android/app/src/main/AndroidManifest.xml")
+          manifest = manifest_path.read_text(encoding="utf-8")
+          if "android:usesCleartextTraffic" not in manifest:
+              manifest = manifest.replace(
+                  "<application",
+                  '<application\n        android:usesCleartextTraffic="true"',
+                  1,
+              )
+          if "android.permission.POST_NOTIFICATIONS" not in manifest:
+              manifest = manifest.replace(
+                  "</manifest>",
+                  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n</manifest>',
+                  1,
+              )
+          manifest_path.write_text(manifest, encoding="utf-8")
+
+          gradle_path = Path("frontend/android/app/build.gradle")
+          gradle = gradle_path.read_text(encoding="utf-8")
+          gradle = re.sub(r"versionCode\s+\d+", "versionCode ${{ github.run_number }}", gradle)
+          gradle = re.sub(r'versionName\s+"[^"]+"', 'versionName "1.0.${{ github.run_number }}"', gradle)
+          gradle_path.write_text(gradle, encoding="utf-8")
+
+          bg_path = Path("frontend/android/app/src/main/res/values/ic_launcher_background.xml")
+          if bg_path.exists():
+              bg_path.write_text(
+                  '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#060913</color>\n</resources>\n',
+                  encoding="utf-8",
+              )
+          EOF
+
+          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          for density_spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density="${density_spec%%:*}"
+            size="${density_spec##*:}"
+            target_dir="frontend/android/app/src/main/res/mipmap-$density"
+            mkdir -p "$target_dir"
+            rsvg-convert -w "$size" -h "$size" frontend/public/favicon.svg -o "$target_dir/ic_launcher.png"
+            rsvg-convert -w "$size" -h "$size" frontend/public/favicon.svg -o "$target_dir/ic_launcher_round.png"
+            rsvg-convert -w "$size" -h "$size" frontend/public/favicon.svg -o "$target_dir/ic_launcher_foreground.png"
+          done
+
+      - name: Make Gradle executable
+        run: chmod +x frontend/android/gradlew
+
+      - name: Build Android APK (Release)
+        working-directory: frontend/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Sign & Align APK
+        run: |
+          UNSIGNED_APK="frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          if [ ! -f "$UNSIGNED_APK" ]; then
+            UNSIGNED_APK=$(find frontend/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
+
+          APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools $ANDROID_HOME/build-tools /usr/local/lib/android/sdk/build-tools -name apksigner 2>/dev/null | sort -V | tail -n 1)
+          ZIPALIGN=$(find $ANDROID_SDK_ROOT/build-tools $ANDROID_HOME/build-tools /usr/local/lib/android/sdk/build-tools -name zipalign 2>/dev/null | sort -V | tail -n 1)
+
+          if [ -n "$ZIPALIGN" ] && ! $ZIPALIGN -c 4 "$UNSIGNED_APK"; then
+            $ZIPALIGN -p -f 4 "$UNSIGNED_APK" aligned.apk
+            UNSIGNED_APK="aligned.apk"
+          fi
+
+          KEYSTORE="keystore/app.keystore"
+          $APKSIGNER sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "keonote" \
+            --ks-pass "pass:keonotepassword" \
+            --key-pass "pass:keonotepassword" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out Remotivity.apk \
+            "$UNSIGNED_APK"
+
+          $APKSIGNER verify --verbose Remotivity.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Remotivity-APK
+          path: Remotivity.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Remotivity v1.0.${{ github.run_number }}"
+          body: |
+            ### 🛰️ Remotivity v1.0.${{ github.run_number }} — Cockpit Instances Distantes
+            - **Accès multi-instances unifié** : Antigravity IDE, Claude Code CLI, Google Jules, VS Code Tunnel & Terminaux distants
+            - **Agent Hôte PC natif (`host-agent/Start-RemotivityHost.ps1`)** : zéro dépendance, exécution de commandes et détection de sessions `.gemini/antigravity/brain`
+            - **Centre de Partage** : QR Code & lien de téléchargement de l'app + partage sécurisé d'accès à une instance (Lecture seule ou Contrôle, avec expiration)
+            - **Pop-up de mise à jour automatique** : détection de la dernière release GitHub au lancement avec téléchargement direct de `Remotivity.apk`
+            - **Web / PWA** : déployé automatiquement sur GitHub Pages (`https://heyhacene.github.io/Remotivity/`)
+
+            APK signé et aligné, prêt à être installé directement sur votre smartphone ou tablette Android.
+          files: |
+            Remotivity.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy PWA to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend/dist
