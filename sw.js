@@ -1,5 +1,5 @@
 // Remotivity • Service Worker (PWA)
-const CACHE_NAME = 'remotivity-pwa-v1.0.1';
+const CACHE_NAME = 'remotivity-pwa-v1.0.2';
 
 const PRECACHE_URLS = [
   './',
